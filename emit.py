@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Field map packaging: one ohc_derive `field` blob -> the gridded per-cell deliverable.
+"""Field map packaging: one ogp_derive `field` blob -> the gridded per-cell deliverable.
 
 For a single-layer quantity such as a mixed layer depth, the factory's identity level takes the
 published field as it is (`as_published` mask, `field` quantity) and collapses the ensemble to a
@@ -8,7 +8,7 @@ monthly grid, in the published units (`field_units` on the variable), plus the `
 the `level` token it was built under. This step is only the packaging: lay the grid out in the ME4OH
 order, name the variables after the quantity, and write one file. Nothing is scaled.
 
-Output: `<name>(LONGITUDE, LATITUDE, TIME)` in the field's units — `mld` in m for a mixed layer depth —
+Output: `<name>(LONGITUDE, LATITUDE, TIME)` in the field's published units (from the quantity table),
 plus `<name>_std` (per-cell ensemble 1-sigma) when the members were present. The grid keeps its native
 monthly TIME axis, re-encoded to days-since-1900 on write (the loader decodes it, so we pin the units
 back on).
@@ -23,7 +23,7 @@ import xarray as xr
 # is built from one derive blob (one level), so this step is a 1-in-1-out courier: it rolls the blob's
 # whole provenance chain forward and folds its own block in, emitting the lot as one `config_record`
 # attribute (one attribute keeps the file in HDF5 compact storage — see `stamp_config_record`).
-STAGE = "mld_emitter"
+STAGE = "field_map_ogp_emitter"
 _PROV_SUFFIXES = ("_run_config", "_run_facts", "_code_version")
 
 
@@ -126,7 +126,7 @@ def _me4oh(da):
 def quantity(blob):
     """The blob's `quantity` table (the ingest [quantity] attr, carried through derive) -> dict."""
     if "quantity" not in blob.attrs:
-        raise SystemExit("blob has no `quantity` attr (expected an ohc_derive blob)")
+        raise SystemExit("blob has no `quantity` attr (expected an ogp_derive blob)")
     return json.loads(blob.attrs["quantity"])
 
 
@@ -184,12 +184,12 @@ def filename(name, tag, token, product_name, author):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="field map packaging: ohc_derive `field` blob -> gridded deliverable")
-    ap.add_argument("blobs", nargs="+", help="ohc_derive output NetCDFs built with --quantities field")
+    ap = argparse.ArgumentParser(description="field map packaging: ogp_derive `field` blob -> gridded deliverable")
+    ap.add_argument("blobs", nargs="+", help="ogp_derive output NetCDFs built with --quantities field")
     ap.add_argument("--tag", required=True, help="provenance tag: filename token + provenance_tag attr")
     ap.add_argument("--provenance-link", default=None, help="URL/path to the provenance record")
     ap.add_argument("--code-version", required=True,
-                    help="URL to the exact mld_emitter code (commit/release); stamped in config_record")
+                    help="URL to the exact field_map_ogp_emitter code (commit/release); stamped in config_record")
     ap.add_argument("--product-name", required=True,
                     help="product_name string, the first of the filename's trailing pair and in config_record "
                          "(e.g. LocalGP)")
@@ -206,7 +206,7 @@ def main():
     for path in cfg.blobs:
         blob = xr.open_dataset(path)
         if "field" not in blob:
-            raise SystemExit("%s carries no field; run ohc_derive with --quantities field" % path)
+            raise SystemExit("%s carries no field; run ogp_derive with --quantities field" % path)
         dest = os.path.join(cfg.out, filename(quantity(blob)["name"], cfg.tag, _file_token(blob),
                                               cfg.product_name, cfg.author))
         out = build_dataset(blob, cfg.tag, cfg.provenance_link, cfg.citation, cfg.product_name)

@@ -106,7 +106,7 @@ def test_config_record_consolidates_chain_into_one_attr(tmp_path):
                              citation="Giglio et al. (2026)")
     cfg = types.SimpleNamespace(
         blobs=["derive_x_0_0.nc"], tag="M-260909", provenance_link="http://emit/docs",
-        code_version="https://github.com/argovis/mld_emitter/commit/eeee", out=str(tmp_path),
+        code_version="https://github.com/argovis/field_map_ogp_emitter/commit/eeee", out=str(tmp_path),
         product_name="LocalGP", author="Giglio_etal2026", citation="Giglio et al. (2026)")
     emit.stamp_config_record(out, blob, cfg, "derive_x_0_0.nc")
 
@@ -115,7 +115,7 @@ def test_config_record_consolidates_chain_into_one_attr(tmp_path):
     assert not any(k.endswith(("_run_config", "_run_facts", "_code_version")) for k in out.attrs)
 
     rec = json.loads(out.attrs["config_record"])
-    assert set(rec) >= {"localgp_ingest", "ohc_derive", "mld_emitter"}   # keyed by stage
+    assert set(rec) >= {"localgp_ingest", "ohc_derive", "field_map_ogp_emitter"}   # keyed by stage
 
     # forwarded ohc_derive block preserved; n_fac stays nested, never mistaken for a fan-out
     assert rec["ohc_derive"]["code_version"].endswith("dddd")
@@ -128,17 +128,17 @@ def test_config_record_consolidates_chain_into_one_attr(tmp_path):
     assert rec["localgp_ingest"]["code_version"] == "u"
 
     # this step's own block
-    assert rec["mld_emitter"]["code_version"].endswith("eeee")
-    assert rec["mld_emitter"]["run_config"]["tag"] == "M-260909"
-    assert rec["mld_emitter"]["run_facts"]["level"] == "0_0"
-    assert rec["mld_emitter"]["run_facts"]["quantity"]["name"] == "mld"
-    assert rec["mld_emitter"]["run_facts"]["quantities_present"] == ["field"]
-    assert rec["mld_emitter"]["run_facts"]["ensemble"] is True
+    assert rec["field_map_ogp_emitter"]["code_version"].endswith("eeee")
+    assert rec["field_map_ogp_emitter"]["run_config"]["tag"] == "M-260909"
+    assert rec["field_map_ogp_emitter"]["run_facts"]["level"] == "0_0"
+    assert rec["field_map_ogp_emitter"]["run_facts"]["quantity"]["name"] == "mld"
+    assert rec["field_map_ogp_emitter"]["run_facts"]["quantities_present"] == ["field"]
+    assert rec["field_map_ogp_emitter"]["run_facts"]["ensemble"] is True
 
     # product_name/author ride in the config brick; citation does NOT (it has its own top-level attr)
-    assert rec["mld_emitter"]["run_config"]["product_name"] == "LocalGP"
-    assert rec["mld_emitter"]["run_config"]["author"] == "Giglio_etal2026"
-    assert "citation" not in rec["mld_emitter"]["run_config"]
+    assert rec["field_map_ogp_emitter"]["run_config"]["product_name"] == "LocalGP"
+    assert rec["field_map_ogp_emitter"]["run_config"]["author"] == "Giglio_etal2026"
+    assert "citation" not in rec["field_map_ogp_emitter"]["run_config"]
 
 
 def test_global_attrs_stay_compact():

@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=00:30:00
-#SBATCH --job-name=mld_emitter
+#SBATCH --job-name=field_map_ogp_emitter
 #SBATCH --output=%x.%j.out
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=katie.mills@colorado.edu
@@ -26,6 +26,6 @@ python emit.py \
   ${results}/derive_${tag}_*.nc \
   --tag ${tag} \
   --provenance-link https://github.com/ocean-grid-processing/provenance/blob/main/README.md \
-  --code-version https://github.com/ocean-grid-processing/mld_emitter/releases/tag/1.1.0 \
+  --code-version https://github.com/ocean-grid-processing/field_map_ogp_emitter/releases/tag/1.1.0 \
   --product-name ${product_name} --author ${author} --citation "${citation}" \
   --out ${results}
