@@ -1,8 +1,9 @@
 # field_map_ogp_emitter
 
 `field_map_ogp_emitter` packages one `ogp_derive` blob into a **gridded field map with its ensemble spread**
-— one NetCDF, `<name>_map_<tag>_<data>_<product_name>_<author>.nc` (`mld_map_…` for a mixed layer
-depth), ME4OH layout, monthly, per grid cell.
+— one NetCDF, `<name>_map_<tag>_[<level>_dbar_]<data>_<product_name>_<author>.nc` (`mld_map_…` for
+a mixed layer depth; the level token appears only for a synthetic level), ME4OH layout, monthly, per
+grid cell.
 
 ```
 localgp_ogp_ingest ─▶ publish ─▶ ogp_derive (identity level, --quantities field) ─▶ field_map_ogp_emitter ─▶ map .nc
@@ -54,11 +55,20 @@ python ../ogp_derive/run.py MLD_<tag>*.nc \
     --product-name LocalGP --author Giglio_etal2026 --citation "…" --out <dir>
 ```
 
+The same emitter serves a **synthetic level** of an extensive quantity — an integrated potential
+temperature over `0_300`, say — built along the OHC path (`--levels levels/localgp.toml --level 0_300
+--mask contiguous_from_top --quantities field`): derive's combine gives the per-cell `Σ n_fac·field_i`
+column integral and the linear sum of the constituent spreads, and the emitter packages it unchanged.
+The output filename then carries the level, `<name>_map_<tag>_<level>_dbar_<data>_…`, so one
+quantity's levels don't collide; an identity level's token names nothing physical and is left out.
+Which case applies is read from derive's `ohc_derive_run_facts.identity_level`, never guessed from
+the token, and the token itself is copied verbatim (it is not parsed as numbers).
+
 No `--time-window`: the field is delivered as published, not as an anomaly, so there is no baseline
 and no `tw<baseline>` token in the output filename. The blob **must** carry data var **`field`** (its
 **`field_sd`** companion when the derive run kept the ensemble; the emitter skips `_std` when it is
-absent), and the attrs **`quantity`** and **`level`**. The emitter exits if `field` or `quantity` is
-missing.
+absent), and the attrs **`quantity`**, **`level`** and **`ohc_derive_run_facts`** (with
+`identity_level`). The emitter exits if any of these is missing.
 
 ## Usage
 
@@ -85,7 +95,7 @@ sbatch emit.slurm
 or directly:
 
 ```bash
-python emit.py derive_<tag>_<data>_tw<data>_<token>.nc --tag <tag> --code-version URL \
+python emit.py derive_<tag>_<data>_tw<data>_<level>.nc --tag <tag> --code-version URL \
     --product-name LocalGP --author Giglio_etal2026 --citation "…" [--provenance-link URL] [--out DIR]
 ```
 
@@ -96,7 +106,7 @@ All configuration is on the command line — no env, no config file. Every resol
 
 | option | required | default | what it does |
 |---|:--:|---|---|
-| `BLOB.nc …` (positional, 1+) | **yes** | | `ogp_derive` blob(s) built with `--quantities field`; one output file per blob. Each must carry `field` and a `quantity` attr |
+| `BLOB.nc …` (positional, 1+) | **yes** | | `ogp_derive` blob(s) built with `--quantities field`; one output file per blob. Each must carry `field`, a `quantity` attr and derive's `ohc_derive_run_facts` |
 | `--tag` | **yes** | | provenance tag: the run token in the filename and the `provenance_tag` attr. Whitespace-stripped, never lowercased |
 | `--code-version` | **yes** | | URL to the exact `field_map_ogp_emitter` code (commit/release); recorded as this stage's `code_version` inside `config_record` |
 | `--product-name` | **yes** | | product_name string; first of the filename's trailing pair (whitespace-stripped, case preserved), a standalone top-level `product_name` attr, and recorded in `config_record` |
@@ -111,7 +121,8 @@ One file per blob:
 
 - data vars **`<name>(LONGITUDE, LATITUDE, TIME)`** and **`<name>_std`**, `_FillValue = -999`
   (NaN off-footprint lands as `-999` on disk and decodes back to NaN on read);
-- global attrs **`level`** (the native token the field was mapped under — a name, not a depth range),
+- global attrs **`level`** (the level token as derive named it — a native tag for an identity level, a
+  plan level like `0_300` for a synthetic one),
   **`provenance_tag`**, **`provenance_link`** (when given), **`citation`**, **`product_name`**, and
   one **`config_record`**.
 
@@ -136,4 +147,5 @@ the file in HDF5 compact attribute storage, which every reader handles; a dozen 
 would tip it into dense (fractal-heap) storage that some netcdf builds mis-read.
 
 For a single-submission identity level there is no per-constituent fan-out to factor, so the forwarded
-`localgp_*` blocks arrive as singletons and pass through as they are; the DRY step is a no-op here.
+`localgp_*` blocks arrive as singletons and pass through as they are; for a synthetic level they are
+DRY'd into `shared` + `per_constituent` exactly as in `map_ogp_emitter`.

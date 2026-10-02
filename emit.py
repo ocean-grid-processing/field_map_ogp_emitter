@@ -171,15 +171,32 @@ def _data_span(blob):
     return "all"
 
 
+def _identity_level(blob):
+    """Whether derive built this blob as an identity level (one submission, no --level) rather than a
+    synthetic level from a plan — read from derive's own run_facts, never inferred from the level token."""
+    if "ohc_derive_run_facts" not in blob.attrs:
+        raise SystemExit("blob has no `ohc_derive_run_facts` attr (expected an ogp_derive blob)")
+    facts = json.loads(blob.attrs["ohc_derive_run_facts"])
+    if "identity_level" not in facts:
+        raise SystemExit("ohc_derive_run_facts lacks `identity_level`; cannot tell an identity level from a "
+                         "synthetic one for the filename")
+    return bool(facts["identity_level"])
+
+
 def _file_token(blob):
-    """Filename token: the blob's own data span `<data>`. The field is not baseline-referenced, so there
-    is no `tw<baseline>` here, and the level token names nothing physical, so it is left out too."""
-    return _data_span(blob)
+    """Filename token. The field is not baseline-referenced, so there is no `tw<baseline>`. A synthetic
+    level built from a plan is named by its level, `<level>_dbar_<data>`, so levels of one quantity don't
+    collide; an identity level's token names nothing physical and is left out: just `<data>`. The level
+    token is used verbatim, not parsed."""
+    data = _data_span(blob)
+    if _identity_level(blob):
+        return data
+    return "%s_dbar_%s" % (blob.attrs["level"], data)
 
 
 def filename(name, tag, token, product_name, author):
-    """Map name: <name>_map_<tag>_<data>_<product_name>_<author>.nc (tag leads after the step;
-    product_name/author are the last thing before .nc)."""
+    """Map name: <name>_map_<tag>_[<level>_dbar_]<data>_<product_name>_<author>.nc (tag leads after the
+    step; product_name/author are the last thing before .nc)."""
     return "%s_map_%s_%s_%s_%s.nc" % (name, tag, token, product_name, author)
 
 
