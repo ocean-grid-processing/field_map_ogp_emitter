@@ -26,7 +26,8 @@ def _blob(with_sd=True):
         ds[v].attrs = {"field_units": "m", "reduction": "grid"}
     ds["lon"].attrs = {"units": "degrees_east"}
     ds["lat"].attrs = {"units": "degrees_north"}
-    ds.attrs.update({"area_m2": 1e12, "level": "0_0", "quantity": json.dumps(QUANTITY)})
+    ds.attrs.update({"area_m2": 1e12, "level": "0_0", "quantity": json.dumps(QUANTITY),
+                     "ohc_derive_run_facts": json.dumps({"level": "0_0", "identity_level": True})})
     return ds
 
 
@@ -86,8 +87,26 @@ def test_filename():
         "mld_map_dev_2005_2007_LocalGP_Giglio_etal2026.nc"
 
 
-def test_file_token_is_the_data_span():
+def test_file_token_is_the_data_span_for_an_identity_level():
     assert emit._file_token(_blob()) == "2005_2007"
+
+
+def test_file_token_names_a_synthetic_level_verbatim():
+    blob = _blob()
+    blob.attrs["level"] = "0_300"
+    blob.attrs["ohc_derive_run_facts"] = json.dumps({"level": "0_300", "identity_level": False})
+    assert emit._file_token(blob) == "0_300_dbar_2005_2007"
+    blob.attrs["level"] = "0_2.5"                                    # tokens are not parsed as numbers
+    assert emit._file_token(blob) == "0_2.5_dbar_2005_2007"
+    assert emit.filename("ipt", "dev", emit._file_token(blob), "LocalGP", "Giglio_etal2026") == \
+        "ipt_map_dev_0_2.5_dbar_2005_2007_LocalGP_Giglio_etal2026.nc"
+
+
+def test_file_token_refuses_a_blob_without_derive_facts():
+    blob = _blob()
+    del blob.attrs["ohc_derive_run_facts"]
+    with pytest.raises(SystemExit):
+        emit._file_token(blob)
 
 
 def test_config_record_consolidates_chain_into_one_attr(tmp_path):
@@ -98,7 +117,8 @@ def test_config_record_consolidates_chain_into_one_attr(tmp_path):
                                                  "15_300": {"var_name": "pt", "cp0": 3989.0, "dir_mean": "/b"}}),
         "localgp_ingest_code_version": json.dumps({"15_20": "u", "15_300": "u"}),   # all agree
         "ohc_derive_run_config": json.dumps({"level": "0_0", "quantities": ["field"]}),
-        "ohc_derive_run_facts": json.dumps({"level": "0_0", "constituents": ["15_20", "15_300"],
+        "ohc_derive_run_facts": json.dumps({"level": "0_0", "identity_level": True,
+                                            "constituents": ["15_20", "15_300"],
                                             "n_fac": {"15_20": 3, "15_300": 1}}),
         "ohc_derive_code_version": "https://github.com/argovis/ohc_derive/commit/dddd",
     })
